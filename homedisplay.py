@@ -40,13 +40,13 @@ class HomeDisplay :
     width = 0
     height = 0
     fibaro_to_name_list = [
-        [ "Deursensor 4", "Achterdeur" ],
-        [ "Raamsensor 6", "Woonkamerraam" ],
-        [ "Raamsensor 7", "Keukenraam" ],
-        [ "Raamsensor 10", "Badkamerraam" ],
-        [ "Raamsensor 11", "Kate slaapkamerraam" ],
-        [ "Raamsensor 5", "Ouderslaapkamerraam" ],
-        [ "Raamsensor 9", "Werkkamerraam" ]
+        [ "Deursensor 4", "ach" ],                          # Achterdeur
+        [ "Raamsensor 6", "woo" ],                          # Woonkamerraam
+        [ "Raamsensor 7", "keu" ],                          # Keukenraam
+        [ "Raamsensor 10", "bad" ],                         # Badkamerraam
+        [ "Raamsensor 11", "Kat" ],                         # Kate slaapkamerraam
+        [ "Raamsensor 5", "oud" ],                          # Ouderslaapkamerraam
+        [ "Raamsensor 9", "wrk" ]                           # Werkkamerraam
     ]
     fibaro_to_name_map = dict(fibaro_to_name_list)
     devices_names = [x[0] for x in fibaro_to_name_list]
@@ -147,12 +147,13 @@ class HomeDisplay :
                 nl_name = self.fibaro_to_name_map[name]
                 device_to_result_map[name] = {
                     "name": nl_name,
-                    "is_open": device["properties"]["value"]
+                    "is_open": device["properties"]["value"],
+                    "battery_level": device["properties"]["batteryLevel"]
                 }
 
         return device_to_result_map
 
-    def show_window_door_sensor_status(self, device_to_result_map, sensor_name, sensor_abbreviation, x):
+    def show_window_door_sensor_status(self, device_to_result_map, sensor_name, x):
         rect = pygame.Rect((x, 480 - self.sensor_status_height), (self.sensor_status_width, self.sensor_status_height))
         color = (0, 255, 0)
         if device_to_result_map[sensor_name]["is_open"]:
@@ -160,26 +161,36 @@ class HomeDisplay :
         self.screen.fill(color, rect)
         pygame.draw.rect(self.screen, (0, 0, 0), rect, 1)
 
-        img = self.font_sensor.render(sensor_abbreviation, True, pygame.Color("white"))
-        self.screen.blit(img, (rect.x + (rect.width - img.get_rect().w) / 2, rect.y + (rect.height - img.get_rect().h) / 2))
+        name = device_to_result_map[sensor_name]["name"]
+        img = self.font_sensor.render(name, True, pygame.Color("white"))
+        self.screen.blit(img, (rect.x + (rect.width - img.get_rect().w) / 2, rect.y + rect.height - img.get_rect().h))
+
+        battery_main_width = 40
+        battery_main_height = 20
+        pygame.draw.rect(self.screen, (255, 255, 255), ((rect.x + rect.width - battery_main_width - 4, rect.y + 4), (battery_main_width, battery_main_height)), 3)
+        battery_top_width = 5
+        battery_top_height = 14
+        battery_top_y_offset = (battery_main_height - battery_top_height) / 2
+        pygame.draw.rect(self.screen, (255, 255, 255), 
+                         ((rect.x + rect.width - battery_main_width - 4 - battery_top_width, rect.y + 4 + battery_top_y_offset), 
+                          (battery_top_width, battery_top_height)))
+
+        battery_level = int(device_to_result_map[sensor_name]["battery_level"])
+        if battery_level == 255:
+            battery_level = 0
+        if battery_level > 5:
+            battery_charge_width = int(battery_main_width / 100.0 * battery_level)
+        pygame.draw.rect(self.screen, (255, 255, 255),
+                         ((rect.x + rect.width - battery_charge_width - 4, rect.y + 4),
+                          (battery_charge_width, battery_main_height)))
+        pygame.draw.rect(self.screen, color, ((rect.x + rect.width - battery_main_width - 2, rect.y + 6), (battery_main_width - 4, battery_main_height - 4)), 1)
 
     def show_window_door_sensor_statuses(self):
         device_to_result_map = self.get_window_door_sensor_status()
         current_pos = 0
-        self.show_window_door_sensor_status(device_to_result_map, "Deursensor 4", "ach", current_pos)
-        current_pos += self.sensor_status_width
-        self.show_window_door_sensor_status(device_to_result_map, "Raamsensor 6", "woo", current_pos)
-        current_pos += self.sensor_status_width
-        self.show_window_door_sensor_status(device_to_result_map, "Raamsensor 7", "keu", current_pos)
-        current_pos += self.sensor_status_width
-        self.show_window_door_sensor_status(device_to_result_map, "Raamsensor 10", "bad", current_pos)
-        current_pos += self.sensor_status_width
-        self.show_window_door_sensor_status(device_to_result_map, "Raamsensor 11", "Kat", current_pos)
-        current_pos += self.sensor_status_width
-        self.show_window_door_sensor_status(device_to_result_map, "Raamsensor 5", "oud", current_pos)
-        current_pos += self.sensor_status_width
-        self.show_window_door_sensor_status(device_to_result_map, "Raamsensor 9", "wrk", current_pos)
-        current_pos += self.sensor_status_width
+        for device_name in self.devices_names:
+            self.show_window_door_sensor_status(device_to_result_map, device_name, current_pos)
+            current_pos += self.sensor_status_width
 
     def update(self):
         # Clear screen
@@ -217,4 +228,6 @@ while (True):
     pygame.event.get()
     home_display.update()
     # Update every 10 seconds because that's the interval that the smart meter updates.
-    pygame.time.wait(10000)
+    for i in range(100):
+        pygame.event.get()
+        pygame.time.wait(100)
