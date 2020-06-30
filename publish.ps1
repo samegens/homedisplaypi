@@ -3,8 +3,8 @@ $ErrorActionPreference = 'Stop'
 # Fail on uninitialized variables and non-existing properties.
 Set-StrictMode -Version Latest
 
+Write-Output "Copying new homedisplay.py to HomeServerConfig..."
 copy-item homedisplay.py ..\HomeServerConfig\files\homedisplay
 
-Write-Output "Next steps:"
-Write-Output "1: start bash in the HomeServiceConfig directory"
-Write-Output "2: ./deploy-homedisplay.sh"
+Write-Output "Deploying HomeDisplay to homedisplaypi..."
+bash -c "cd ../HomeServerConfig && ./deploy-homedisplay.sh"
