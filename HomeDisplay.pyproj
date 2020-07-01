@@ -13,9 +13,8 @@
     <RootNamespace>HomeDisplay</RootNamespace>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
-    <Environment>FIBARO_USER_NAME=post@blauwe-lucht.nl
-FIBARO_PASSWORD=LenS7272
-FIBARO_HOST=192.168.2.121</Environment>
+    <Environment>
+    </Environment>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

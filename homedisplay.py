@@ -44,6 +44,13 @@ def wind_bft(ms):
             return bft
     return len(bft_threshold)
 
+def get_secret(key):
+    if is_windows():
+        with open(f"d:\\Dropbox\\secrets\\{key}", "r") as f:
+            return f.readline()
+    else:
+        return os.getenv(key)
+
 class HomeDisplay :
     screen = None
     tz = pytz.timezone('Europe/Amsterdam')
@@ -66,8 +73,8 @@ class HomeDisplay :
     devices_names = [x[0] for x in fibaro_to_name_list]
     sensor_status_width = 100
     sensor_status_height = 80
-    owm = pyowm.OWM(os.getenv("OPENWEATHERMAP_API_KEY"))
-    climacell_client = ClimacellApiClient(os.getenv("CLIMACELL_API_KEY"))
+    owm = pyowm.OWM(get_secret("OPENWEATHERMAP_API_KEY"))
+    climacell_client = ClimacellApiClient(get_secret("CLIMACELL_API_KEY"))
     last_climacell_call = None
     
     def init_windows(self):
@@ -148,9 +155,9 @@ class HomeDisplay :
         return live
 
     def get_window_door_sensor_status(self):
-        user_name = urllib.parse.quote(os.getenv("FIBARO_USER_NAME") or "nobody")
-        password = urllib.parse.quote(os.getenv("FIBARO_PASSWORD") or "secret")
-        host = os.getenv("FIBARO_HOST") or "localhost"
+        user_name = urllib.parse.quote(get_secret("FIBARO_USER_NAME") or "nobody")
+        password = urllib.parse.quote(get_secret("FIBARO_PASSWORD") or "secret")
+        host = get_secret("FIBARO_HOST") or "localhost"
         url = "http://{0}:{1}@{2}/api/devices".format(user_name, password, host)
         # We're using requests here, because urllib can't handle URLs that contain username and password.
         r = requests.get(url=url, headers={"X-Fibaro-Version": "2"})
