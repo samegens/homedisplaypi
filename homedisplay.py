@@ -3,7 +3,7 @@ import pygame
 import time
 import random
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import urllib.request
 import json
@@ -11,6 +11,8 @@ import signal
 import traceback
 import platform
 import logging
+import pyowm
+from climacell_api.client import ClimacellApiClient
 
 def is_windows():
     return platform.system() == "Windows"
@@ -31,12 +33,24 @@ if not is_windows():
     signal.signal(signal.SIGHUP, handler)
     signal.signal(signal.SIGCONT, handler)
 
+bft_threshold = (0.3, 1.5, 3.4, 5.4, 7.9, 10.7, 13.8, 17.1, 20.7, 24.4, 28.4, 32.6)
+
+def wind_bft(ms):
+    "Convert wind from metres per second to Beaufort scale"
+    if ms is None:
+        return None
+    for bft in range(len(bft_threshold)):
+        if ms < bft_threshold[bft]:
+            return bft
+    return len(bft_threshold)
+
 class HomeDisplay :
     screen = None
     tz = pytz.timezone('Europe/Amsterdam')
-    font = None
+    font_time = None
     font_usage = None
     font_sensor = None
+    font_temp = None
     width = 0
     height = 0
     fibaro_to_name_list = [
@@ -52,6 +66,9 @@ class HomeDisplay :
     devices_names = [x[0] for x in fibaro_to_name_list]
     sensor_status_width = 100
     sensor_status_height = 80
+    owm = pyowm.OWM(os.getenv("OPENWEATHERMAP_API_KEY"))
+    climacell_client = ClimacellApiClient(os.getenv("CLIMACELL_API_KEY"))
+    last_climacell_call = None
     
     def init_windows(self):
         pygame.init()
@@ -102,9 +119,10 @@ class HomeDisplay :
         self.screen.fill((0, 0, 0))        
         # Initialise font support
         pygame.font.init()
-        self.font = pygame.font.SysFont(None, 96)
+        self.font_time = pygame.font.SysFont(None, 96)
         self.font_usage = pygame.font.SysFont(None, 300)
         self.font_sensor = pygame.font.SysFont(None, 72)
+        self.font_temp = self.font_time
         # Hide the mouse cursor
         pygame.mouse.set_visible(0)
         # Render the screen
@@ -192,6 +210,47 @@ class HomeDisplay :
             self.show_window_door_sensor_status(device_to_result_map, device_name, current_pos)
             current_pos += self.sensor_status_width
 
+    def show_weather_omw(self):
+        mgr = self.owm.weather_manager()
+        observation = mgr.weather_at_place('Purmerend,NL')
+        weather = observation.weather
+
+        temperatures = weather.temperature("celsius")
+        current_temperature = int(temperatures["temp"])
+
+        wind = weather.wind(unit = "beaufort")
+        wind_speed = int(wind["speed"])
+        wind_dir = int(wind["deg"])
+        wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
+        wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW" "NWN"]
+        wind_dir_name = wind_dir_names[wind_index]
+
+        current_weather_text = f"{current_temperature}° {wind_speed} Bft {wind_dir_name}"
+        img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
+        self.screen.blit(img, (0, 0))
+
+    def show_weather_climacell(self):
+        if self.last_climacell_call is None or datetime.now() >= self.last_climacell_call + timedelta(minutes=10):
+            r = self.climacell_client.realtime(lat=52.4953, lon=4.9373, fields=["temp", "wind_speed", "wind_direction"])
+            if r.status_code != 200:
+                logging.warning(f"Climacell API returned {r.status_code}")
+                return;
+
+            self.temperature = int(r.data().measurements["temp"].value)
+            self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
+            wind_dir = int(r.data().measurements["wind_direction"].value)
+            wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
+            wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW" "NWN"]
+            self.wind_dir_name = wind_dir_names[wind_index]
+
+            logging.info(f"Measurements from Climacell: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
+
+            self.last_climacell_call = datetime.now()
+
+        current_weather_text = f"{self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}"
+        img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
+        self.screen.blit(img, (0, 0))
+
     def update(self):
         # Clear screen
         black = (0, 0, 0)
@@ -200,7 +259,7 @@ class HomeDisplay :
         # Show time in top right corner.
         now = datetime.now(self.tz)
         time_text = now.strftime("%H:%M")
-        img = self.font.render(time_text, True, pygame.Color("white"))
+        img = self.font_time.render(time_text, True, pygame.Color("white"))
         self.screen.blit(img, (self.width - img.get_rect().w, 0))
 
         # Show net usage in the middle.
@@ -215,6 +274,8 @@ class HomeDisplay :
             # Do not let a failed call crash the display, but show the error.
             logging.warning(str(e))
             logging.warning(traceback.format_exc())
+
+        self.show_weather_climacell()
 
         pygame.display.update()
 

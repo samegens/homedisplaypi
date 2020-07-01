@@ -20,3 +20,8 @@ Framebuffer size: 800 x 480
 misschien interessant font voor tijd en weer: https://www.keshikan.net/fonts-e.html
 
 device["properties"]["batteryLevel"], percentage 0-100, soms 255, Fibaro HC2 laat lege batterij zien
+
+openweathermap is makkelijk in gebruik en gratis, maar de windsnelheid slaat nergens op, 2 Bft ipv 5, windrichting is ook niet goed
+
+yr.no: http://www.yr.no/place/Netherlands/North_Holland/Weidevenne/forecast.xml : geen observaties
+
