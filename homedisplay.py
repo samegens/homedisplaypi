@@ -254,9 +254,27 @@ class HomeDisplay :
 
             self.last_climacell_call = datetime.now()
 
+            end_time = (datetime.utcnow() + timedelta(minutes=360)).isoformat()
+            r = self.climacell_client.nowcast(lat=52.4953, lon=4.9373, timestep=60, start_time="now", end_time=end_time, fields=["precipitation"], units='si')
+            self.precipitations = [d.measurements["precipitation"].value for d in r.data()]
+
         current_weather_text = f"{self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}"
         img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
         self.screen.blit(img, (0, 0))
+
+        x_offset = 380
+        y_offset = 3
+        precipitation_max_height = 50
+        precipitation_bar_width = 20
+        precipitation_bar_spacing = 5
+        color = (51, 204, 255)
+        max_mm_hr = 10
+        for precipitation in self.precipitations:
+            precipitation = min(precipitation, max_mm_hr)
+            precipitation_bar_height = max(1, precipitation_max_height / max_mm_hr * precipitation)
+            rect = (x_offset, y_offset + precipitation_max_height - precipitation_bar_height), (precipitation_bar_width, precipitation_bar_height)
+            self.screen.fill(color, rect)
+            x_offset += precipitation_bar_width + precipitation_bar_spacing
 
     def update(self):
         # Clear screen
