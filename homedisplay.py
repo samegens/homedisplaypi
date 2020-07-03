@@ -190,14 +190,19 @@ class HomeDisplay :
         img = self.font_sensor.render(name, True, pygame.Color("white"))
         self.screen.blit(img, (rect.x + (rect.width - img.get_rect().w) / 2, rect.y + rect.height - img.get_rect().h))
 
-        battery_main_width = 40
-        battery_main_height = 20
-        pygame.draw.rect(self.screen, (255, 255, 255), ((rect.x + rect.width - battery_main_width - 4, rect.y + 4), (battery_main_width, battery_main_height)), 3)
-        battery_top_width = 5
-        battery_top_height = 14
-        battery_top_y_offset = (battery_main_height - battery_top_height) / 2
+        battery_main_width = 30
+        battery_main_height = 15
+        battery_y_offset = 6
+        # battery main outline
         pygame.draw.rect(self.screen, (255, 255, 255), 
-                         ((rect.x + rect.width - battery_main_width - 4 - battery_top_width, rect.y + 4 + battery_top_y_offset), 
+                         ((rect.x + rect.width - battery_main_width - 4, rect.y + battery_y_offset), 
+                          (battery_main_width, battery_main_height)), 3)
+        battery_top_width = 4
+        battery_top_height = 10
+        battery_top_y_offset = (battery_main_height - battery_top_height) / 2
+        # battery top
+        pygame.draw.rect(self.screen, (255, 255, 255), 
+                         ((rect.x + rect.width - battery_main_width - 4 - battery_top_width, rect.y + battery_y_offset + battery_top_y_offset), 
                           (battery_top_width, battery_top_height)))
 
         battery_level = int(device_to_result_map[sensor_name]["battery_level"])
@@ -205,10 +210,14 @@ class HomeDisplay :
             battery_level = 0
         if battery_level > 5:
             battery_charge_width = int(battery_main_width / 100.0 * battery_level)
+        # battery charge
         pygame.draw.rect(self.screen, (255, 255, 255),
-                         ((rect.x + rect.width - battery_charge_width - 4, rect.y + 4),
+                         ((rect.x + rect.width - battery_charge_width - 4, rect.y + battery_y_offset),
                           (battery_charge_width, battery_main_height)))
-        pygame.draw.rect(self.screen, color, ((rect.x + rect.width - battery_main_width - 2, rect.y + 6), (battery_main_width - 4, battery_main_height - 4)), 1)
+        # inner line of battery
+        pygame.draw.rect(self.screen, color, 
+                         ((rect.x + rect.width - battery_main_width - 2, rect.y + battery_y_offset + 2), 
+                          (battery_main_width - 4, battery_main_height - 4)), 1)
 
     def show_window_door_sensor_statuses(self):
         device_to_result_map = self.get_window_door_sensor_status()
@@ -262,11 +271,11 @@ class HomeDisplay :
         img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
         self.screen.blit(img, (0, 0))
 
-        x_offset = 380
+        x_offset = 465
         y_offset = 3
         precipitation_max_height = 50
-        precipitation_bar_width = 20
-        precipitation_bar_spacing = 5
+        precipitation_bar_width = 15
+        precipitation_bar_spacing = 3
         color = (51, 204, 255)
         max_mm_hr = 10
         for precipitation in self.precipitations:
