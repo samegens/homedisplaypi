@@ -12,6 +12,7 @@ import traceback
 import platform
 import logging
 import pyowm
+import math
 from climacell_api.client import ClimacellApiClient
 
 def is_windows():
@@ -277,10 +278,10 @@ class HomeDisplay :
         precipitation_bar_width = 15
         precipitation_bar_spacing = 3
         color = (51, 204, 255)
-        max_mm_hr = 10
+        max_mm_hr = 5
         for precipitation in self.precipitations:
             precipitation = min(precipitation, max_mm_hr)
-            precipitation_bar_height = max(1, precipitation_max_height / max_mm_hr * precipitation)
+            precipitation_bar_height = max(1, precipitation_max_height / max_mm_hr * math.ceil(precipitation))
             rect = (x_offset, y_offset + precipitation_max_height - precipitation_bar_height), (precipitation_bar_width, precipitation_bar_height)
             self.screen.fill(color, rect)
             x_offset += precipitation_bar_width + precipitation_bar_spacing
