@@ -257,7 +257,7 @@ class HomeDisplay :
             self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
             wind_dir = int(r.data().measurements["wind_direction"].value)
             wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
-            wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW" "NWN"]
+            wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
             self.wind_dir_name = wind_dir_names[wind_index]
 
             logging.info(f"Measurements from Climacell: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
