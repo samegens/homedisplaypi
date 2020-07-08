@@ -272,8 +272,8 @@ class HomeDisplay :
         img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
         self.screen.blit(img, (0, 0))
 
-        x_offset = 465
-        y_offset = 3
+        x_offset = 475
+        y_offset = 7
         precipitation_max_height = 50
         precipitation_bar_width = 15
         precipitation_bar_spacing = 3
