@@ -77,6 +77,9 @@ class HomeDisplay :
     owm = pyowm.OWM(get_secret("OPENWEATHERMAP_API_KEY"))
     climacell_client = ClimacellApiClient(get_secret("CLIMACELL_API_KEY"))
     last_climacell_call = None
+    temperature = '?'
+    wind_speed = '?'
+    wind_dir_name = '?'
     
     def init_windows(self):
         pygame.init()
@@ -253,12 +256,23 @@ class HomeDisplay :
                 logging.warning(f"Climacell API returned {r.status_code}")
                 return;
 
-            self.temperature = int(r.data().measurements["temp"].value)
-            self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
-            wind_dir = int(r.data().measurements["wind_direction"].value)
-            wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
-            wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
-            self.wind_dir_name = wind_dir_names[wind_index]
+            try:
+                self.temperature = int(r.data().measurements["temp"].value)
+            except:
+                pass
+
+            try:
+                self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
+            except:
+                pass
+
+            try:
+                wind_dir = int(r.data().measurements["wind_direction"].value)
+                wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
+                wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
+                self.wind_dir_name = wind_dir_names[wind_index]
+            except:
+                pass
 
             logging.info(f"Measurements from Climacell: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
 
