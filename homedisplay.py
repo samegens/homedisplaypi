@@ -68,11 +68,14 @@ class HomeDisplay :
         [ "Raamsensor 10", "bad" ],                         # Badkamerraam
         [ "Raamsensor 11", "Kat" ],                         # Kate slaapkamerraam
         [ "Raamsensor 5", "oud" ],                          # Ouderslaapkamerraam
-        [ "Raamsensor 9", "wrk" ]                           # Werkkamerraam
+        [ "Raamsensor 9", "wrk" ],                          # Werkkamerraam
+        [ "Raamsensor 14", "zlv" ],                         # Zolder voorkant
+        [ "Raamsensor 12", "zal" ],                         # Zolder achterkant links
+        [ "Raamsensor 13", "zar" ]                          # Zolder achterkant rechts
     ]
     fibaro_to_name_map = dict(fibaro_to_name_list)
     devices_names = [x[0] for x in fibaro_to_name_list]
-    sensor_status_width = 100
+    sensor_status_width = 80
     sensor_status_height = 80
     owm = pyowm.OWM(get_secret("OPENWEATHERMAP_API_KEY"))
     climacell_client = ClimacellApiClient(get_secret("CLIMACELL_API_KEY"))
@@ -132,7 +135,7 @@ class HomeDisplay :
         pygame.font.init()
         self.font_time = pygame.font.SysFont(None, 96)
         self.font_usage = pygame.font.SysFont(None, 300)
-        self.font_sensor = pygame.font.SysFont(None, 72)
+        self.font_sensor = pygame.font.SysFont(None, 56)
         self.font_temp = self.font_time
         # Hide the mouse cursor
         pygame.mouse.set_visible(0)
