@@ -83,6 +83,7 @@ class HomeDisplay :
     temperature = '?'
     wind_speed = '?'
     wind_dir_name = '?'
+    precipitations = []
     
     def init_windows(self):
         pygame.init()
@@ -252,8 +253,9 @@ class HomeDisplay :
         img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
         self.screen.blit(img, (0, 0))
 
-    def show_weather_climacell(self):
+    def retrieve_weather_info(self):
         if self.last_climacell_call is None or datetime.now() >= self.last_climacell_call + timedelta(minutes=10):
+            is_data_suspect = False
             r = self.climacell_client.realtime(lat=52.4953, lon=4.9373, fields=["temp", "wind_speed", "wind_direction"])
             if r.status_code != 200:
                 logging.warning(f"Climacell API returned {r.status_code}")
@@ -262,12 +264,12 @@ class HomeDisplay :
             try:
                 self.temperature = int(r.data().measurements["temp"].value)
             except:
-                pass
+                is_data_suspect = True
 
             try:
                 self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
             except:
-                pass
+                is_data_suspect = True
 
             try:
                 wind_dir = int(r.data().measurements["wind_direction"].value)
@@ -275,7 +277,10 @@ class HomeDisplay :
                 wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
                 self.wind_dir_name = wind_dir_names[wind_index]
             except:
-                pass
+                is_data_suspect = True
+
+            if is_data_suspect:
+                logging.warning(f"Realtime data is suspect: {r.text}")
 
             logging.info(f"Measurements from Climacell: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
 
@@ -284,6 +289,15 @@ class HomeDisplay :
             end_time = (datetime.utcnow() + timedelta(minutes=360)).isoformat()
             r = self.climacell_client.nowcast(lat=52.4953, lon=4.9373, timestep=60, start_time="now", end_time=end_time, fields=["precipitation"], units='si')
             self.precipitations = [d.measurements["precipitation"].value for d in r.data()]
+            is_data_suspect = False
+            if None in self.precipitations:
+                is_data_suspect = True
+
+            if is_data_suspect:
+                logging.warning(f"Nowcast data is suspect: {r.text}")
+
+    def show_weather_climacell(self):
+        self.retrieve_weather_info()
 
         current_weather_text = f"{self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}"
         img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
@@ -297,6 +311,8 @@ class HomeDisplay :
         color = (51, 204, 255)
         max_mm_hr = 5
         for precipitation in self.precipitations:
+            if precipitation is None:
+                precipitation = 0
             precipitation = min(precipitation, max_mm_hr)
             precipitation_bar_height = max(1, precipitation_max_height / max_mm_hr * math.ceil(precipitation))
             rect = (x_offset, y_offset + precipitation_max_height - precipitation_bar_height), (precipitation_bar_width, precipitation_bar_height)
