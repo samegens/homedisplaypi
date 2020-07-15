@@ -26,7 +26,7 @@ logging.basicConfig(filename=logfile, format="%(asctime)s | %(levelname)s | %(na
 
 def handler(signum, frame):
     """Why is systemd sending sighups/SIGCONT? I DON'T KNOW."""
-    logging.warn("Got a {} signal. Doing nothing".format(signum))
+    logging.warning("Got a {} signal. Doing nothing".format(signum))
     # Note that this messes up the correct handling of 'service homedisplay stop' and restart. This means that the Pi
     # needs to be rebooted after changing the source.
 
