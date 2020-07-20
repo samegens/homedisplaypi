@@ -255,46 +255,64 @@ class HomeDisplay :
 
     def retrieve_weather_info(self):
         if self.last_climacell_call is None or datetime.now() >= self.last_climacell_call + timedelta(minutes=10):
-            is_data_suspect = False
-            r = self.climacell_client.realtime(lat=52.4953, lon=4.9373, fields=["temp", "wind_speed", "wind_direction"])
-            if r.status_code != 200:
-                logging.warning(f"Climacell API returned {r.status_code}")
-                return;
-
             try:
-                self.temperature = int(r.data().measurements["temp"].value)
+                is_data_suspect = False
+                try:
+                    r = self.climacell_client.realtime(lat=52.4953, lon=4.9373, fields=["temp", "wind_speed", "wind_direction"])
+                except requests.exceptions.ConnectionError:
+                    logging.exception("Unable to connect to Climacell API realtime")
+                    # This call was not registered, so try again in the next update.
+                    return
+
+                if r.status_code != 200:
+                    logging.warning(f"Climacell API returned {r.status_code}")
+                    return;
+
+                try:
+                    self.temperature = int(r.data().measurements["temp"].value)
+                except:
+                    is_data_suspect = True
+
+                try:
+                    self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
+                except:
+                    is_data_suspect = True
+
+                try:
+                    wind_dir = int(r.data().measurements["wind_direction"].value)
+                    wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
+                    wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
+                    self.wind_dir_name = wind_dir_names[wind_index]
+                except:
+                    is_data_suspect = True
+
+                if is_data_suspect:
+                    logging.warning(f"Realtime data is suspect: {r.text}")
+
+                logging.info(f"Measurements from Climacell: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
+
+                end_time = (datetime.utcnow() + timedelta(minutes=360)).isoformat()
+                try:
+                    r = self.climacell_client.nowcast(lat=52.4953, lon=4.9373, timestep=60, start_time="now", end_time=end_time, fields=["precipitation"], units='si')
+
+                    self.precipitations = [d.measurements["precipitation"].value for d in r.data()]
+                    is_data_suspect = False
+                    if None in self.precipitations:
+                        is_data_suspect = True
+
+                    if is_data_suspect:
+                        logging.warning(f"Nowcast data is suspect: {r.text}")
+                except requests.exceptions.ConnectionError:
+                    logging.exception("Unable to connect to Climacell API nowcast")
+                    # The call to realtime was registered, so just keep the cached precipitations data.
+
+                self.last_climacell_call = datetime.now()
             except:
-                is_data_suspect = True
-
-            try:
-                self.wind_speed = wind_bft(int(r.data().measurements["wind_speed"].value))
-            except:
-                is_data_suspect = True
-
-            try:
-                wind_dir = int(r.data().measurements["wind_direction"].value)
-                wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
-                wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
-                self.wind_dir_name = wind_dir_names[wind_index]
-            except:
-                is_data_suspect = True
-
-            if is_data_suspect:
-                logging.warning(f"Realtime data is suspect: {r.text}")
-
-            logging.info(f"Measurements from Climacell: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
-
-            self.last_climacell_call = datetime.now()
-
-            end_time = (datetime.utcnow() + timedelta(minutes=360)).isoformat()
-            r = self.climacell_client.nowcast(lat=52.4953, lon=4.9373, timestep=60, start_time="now", end_time=end_time, fields=["precipitation"], units='si')
-            self.precipitations = [d.measurements["precipitation"].value for d in r.data()]
-            is_data_suspect = False
-            if None in self.precipitations:
-                is_data_suspect = True
-
-            if is_data_suspect:
-                logging.warning(f"Nowcast data is suspect: {r.text}")
+                logging.exception("Unable to retrieve weather info from Climacell")
+                self.temperature = "?"
+                self.wind_speed = "?"
+                self.wind_dir_name = "?"
+                self.precipitations = []
 
     def show_weather_climacell(self):
         self.retrieve_weather_info()
