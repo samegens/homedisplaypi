@@ -218,6 +218,8 @@ class HomeDisplay :
             battery_level = 0
         if battery_level > 5:
             battery_charge_width = int(battery_main_width / 100.0 * battery_level)
+        else:
+            battery_charge_width = 0
         # battery charge
         pygame.draw.rect(self.screen, (255, 255, 255),
                          ((rect.x + rect.width - battery_charge_width - 4, rect.y + battery_y_offset),
