@@ -157,10 +157,15 @@ class HomeDisplay :
         # Retrieve the live usage from the meterkastpi.
         url = "http://meterkastpi/"
         req = urllib.request.Request(url)
-        r = urllib.request.urlopen(req).read()
-        cont = json.loads(r.decode('utf-8'))
-        live = cont["live"]
-        return live
+        try:
+            r = urllib.request.urlopen(req).read()
+            cont = json.loads(r.decode('utf-8'))
+            live = cont["live"]
+            return live
+        except Exception as e:
+            # Do not let a failed call crash the display, but show the error.
+            logging.warning(str(e))
+            logging.warning(traceback.format_exc())
 
     def get_window_door_sensor_status(self):
         user_name = urllib.parse.quote(get_secret("FIBARO_USER_NAME") or "nobody")
@@ -344,17 +349,22 @@ class HomeDisplay :
         black = (0, 0, 0)
         self.screen.fill(black)
 
-        # Show time in top right corner.
+        # Show time and date in top right corner.
         now = datetime.now(self.tz)
         time_text = now.strftime("%H:%M")
         img = self.font_time.render(time_text, True, pygame.Color("white"))
         self.screen.blit(img, (self.width - img.get_rect().w, 0))
+        text_height = img.get_rect().h
+
+        date_text = datetime.now(self.tz).strftime("%d-%m")
+        img = self.font_time.render(date_text, True, pygame.Color("white"))
+        self.screen.blit(img, (self.width - img.get_rect().w, text_height))
 
         # Show net usage in the middle.
         live = self.get_live_usage()
-        usage_text = "{0}W".format(int(live))
+        usage_text = "{0}W".format(int(live)) if live is not None else "?W"
         img = self.font_usage.render(usage_text, True, pygame.Color("white"))
-        self.screen.blit(img, ((self.width - img.get_rect().w) / 2, (self.height - img.get_rect().h) / 2))
+        self.screen.blit(img, ((self.width - img.get_rect().w) / 2, (self.height - img.get_rect().h) / 2 + 40))
 
         try:
             self.show_window_door_sensor_statuses()
