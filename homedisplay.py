@@ -3,7 +3,7 @@ import pygame
 import time
 import random
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 import urllib.request
 import json
@@ -14,6 +14,8 @@ import logging
 import pyowm
 import math
 from climacell_api.client import ClimacellApiClient
+from influxdb import InfluxDBClient
+import dateutil
 
 def is_windows():
     return platform.system() == "Windows"
@@ -143,6 +145,8 @@ class HomeDisplay :
         # Render the screen
         pygame.display.update()
 
+        self.influxdb_client = InfluxDBClient('fitlet', 8086, 'admin', 'admin', 'hc2_log')
+
     def __del__(self):
         "Destructor to make sure pygame shuts down, etc."
 
@@ -260,6 +264,29 @@ class HomeDisplay :
         img = self.font_temp.render(current_weather_text, True, (255, 255, 255))
         self.screen.blit(img, (0, 0))
 
+    def retrieve_indoor_temp_and_hum(self):
+        records = self.influxdb_client.query("select * from \"hc2\" where \"room\"='Woonkamer' order by time desc limit 1;")
+        for measurement in records.get_points():
+            time = measurement["time"]
+            time = dateutil.parser.isoparse(time)
+            if (datetime.now(timezone.utc) - time).total_seconds() < 60 * 60:
+                humidity = measurement["humidity"]
+                temperature = measurement["temperature"]
+                return (temperature, humidity)
+
+        return None
+
+    def show_indoor_temp_and_hum(self):
+        result = self.retrieve_indoor_temp_and_hum()
+        if result is None:
+            return
+
+        (temperature, humidity) = result
+        text = f"{temperature}° {humidity:.0f}%"
+        img = self.font_temp.render(text, True, (255, 255, 255))
+        text_height = img.get_rect().h
+        self.screen.blit(img, (0, text_height))
+
     def retrieve_weather_info(self):
         if self.last_climacell_call is None or datetime.now() >= self.last_climacell_call + timedelta(minutes=10):
             try:
@@ -360,6 +387,13 @@ class HomeDisplay :
         img = self.font_time.render(date_text, True, pygame.Color("white"))
         self.screen.blit(img, (self.width - img.get_rect().w, text_height))
 
+        try:
+            self.show_indoor_temp_and_hum()
+        except Exception as e:
+            # Do not let a failed call crash the display, but show the error.
+            logging.warning(str(e))
+            logging.warning(traceback.format_exc())
+
         # Show net usage in the middle.
         live = self.get_live_usage()
         usage_text = "{0}W".format(int(live)) if live is not None else "?W"
@@ -373,7 +407,12 @@ class HomeDisplay :
             logging.warning(str(e))
             logging.warning(traceback.format_exc())
 
-        self.show_weather_climacell()
+        try:
+            self.show_weather_climacell()
+        except Exception as e:
+            # Do not let a failed call crash the display, but show the error.
+            logging.warning(str(e))
+            logging.warning(traceback.format_exc())
 
         pygame.display.update()
 
