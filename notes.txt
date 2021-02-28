@@ -1,0 +1,3 @@
+Query om laatste temperatuur Woonkamer op te halen:
+use database "hc2_log"
+select * from "hc2" where "room"='Woonkamer' order by time desc limit 1
