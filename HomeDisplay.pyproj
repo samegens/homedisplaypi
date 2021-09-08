@@ -15,6 +15,7 @@
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <Environment>
     </Environment>
+    <SuppressConfigureTestFrameworkPrompt>true</SuppressConfigureTestFrameworkPrompt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -27,6 +28,9 @@
   <ItemGroup>
     <Compile Include="homedisplay.py" />
     <Compile Include="test_influx.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="test_tomorrow.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
