@@ -227,7 +227,7 @@ class HomeDisplay :
                 logging.info(f"Measurements from Tomorrow: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
 
                 try:
-                    self.precipitations = [int(d["values"]["precipitationIntensity"].value + 0.5) for d in data["data"]["timelines"][1]["intervals"]]
+                    self.precipitations = [int(d["values"]["precipitationIntensity"] + 0.5) for d in data["data"]["timelines"][1]["intervals"]]
                     is_data_suspect = False
                     if None in self.precipitations:
                         is_data_suspect = True
@@ -235,8 +235,8 @@ class HomeDisplay :
                 except:
                     is_data_suspect = True
 
-                    if is_data_suspect:
-                        logging.warning(f"Tomorrow 1h data is suspect: {r.text}")
+                if is_data_suspect:
+                    logging.warning(f"Tomorrow 1h data is suspect: {r.text}")
 
                 self.last_tomorrow_call = datetime.now()
             except:
