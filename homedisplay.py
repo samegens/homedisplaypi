@@ -15,15 +15,23 @@ import logging
 import math
 from influxdb import InfluxDBClient
 import dateutil
-
+import getpass
 
 def is_windows():
     return platform.system() == "Windows"
 
+def is_root():
+    return getpass.getuser() == "root"
+
+def is_pi():
+    return platform.machine().startswith("arm")
+
 if is_windows():
     logfile = "homedisplay.log"
-else:
+elif is_root():
     logfile = "/var/log/homedisplay.log"
+else:
+    logfile = "/tmp/homedisplay.log"
 logging.basicConfig(filename=logfile, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 
 def handler(signum, frame):
@@ -68,13 +76,13 @@ class HomeDisplay :
     wind_dir_name = '?'
     precipitations = []
     
-    def init_windows(self):
+    def init_non_pi(self):
         pygame.init()
         self.width = 800
         self.height = 480
         self.screen = pygame.display.set_mode([self.width, self.height])
 
-    def init_linux(self):
+    def init_pi(self):
         "Initializes a new pygame screen using the framebuffer"
         # Based on "Python GUI in Linux frame buffer"
         # http://www.karoltomala.com/blog/?p=679
@@ -108,10 +116,10 @@ class HomeDisplay :
         self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
 
     def __init__(self):
-        if is_windows():
-            self.init_windows()
+        if is_pi():
+            self.init_pi()
         else:
-            self.init_linux()
+            self.init_non_pi()
 
         # Clear the screen to start
         self.screen.fill((0, 0, 0))        
@@ -184,12 +192,13 @@ class HomeDisplay :
                         "location": "6138471889c05400076aafc4", # Purmerend
                         "fields": ["temperature", "precipitationIntensity", "windSpeed", "windDirection"],
                         "units": "metric",
-                        "timesteps": ["current", "1h"],
+                        "timesteps": ["1h"],
                         "startTime": datetime.now(gettz("Europe/Amsterdam")).isoformat(),
                         "endTime": (datetime.now(gettz("Europe/Amsterdam")) + timedelta(hours = 6)).isoformat(),
                         "apikey": get_secret("TOMORROW_API_KEY")
                     }
 
+                    self.last_tomorrow_call = datetime.now()
                     r = requests.request("GET", url, params=querystring)
 
                 except requests.exceptions.ConnectionError:
@@ -227,7 +236,7 @@ class HomeDisplay :
                 logging.info(f"Measurements from Tomorrow: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
 
                 try:
-                    self.precipitations = [int(d["values"]["precipitationIntensity"] + 0.5) for d in data["data"]["timelines"][1]["intervals"]]
+                    self.precipitations = [int(d["values"]["precipitationIntensity"] + 0.5) for d in data["data"]["timelines"][0]["intervals"]]
                     is_data_suspect = False
                     if None in self.precipitations:
                         is_data_suspect = True
@@ -238,7 +247,6 @@ class HomeDisplay :
                 if is_data_suspect:
                     logging.warning(f"Tomorrow 1h data is suspect: {r.text}")
 
-                self.last_tomorrow_call = datetime.now()
             except:
                 logging.exception("Unable to retrieve weather info from Tomorrow")
                 self.temperature = "?"
@@ -296,7 +304,9 @@ class HomeDisplay :
         live = self.get_live_usage()
         usage_text = "{0}W".format(int(live)) if live is not None else "?W"
         img = self.font_usage.render(usage_text, True, pygame.Color("white"))
-        self.screen.blit(img, ((self.width - img.get_rect().w) / 2, (self.height - img.get_rect().h) / 2 + 40))
+        width = int((self.width - img.get_rect().w) / 2)
+        height = int((self.height - img.get_rect().h) / 2 + 40)
+        self.screen.blit(img, (width, height))
 
         try:
             self.show_weather_climacell()
@@ -307,7 +317,7 @@ class HomeDisplay :
 
         pygame.display.update()
 
-if not is_windows():
+if os.path.exists("/sys/class/backlight/rpi_backlight/brightness"):
     # Set the brightness to a proper value
     with open("/sys/class/backlight/rpi_backlight/brightness", "w") as f:
         f.write("32")
