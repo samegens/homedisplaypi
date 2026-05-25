@@ -5,23 +5,12 @@ Requires a Raspberry Pi 2 or higher connected to the official 7" touchscreen.
 
 ## How to run locally (Linux)
 
-Requires SDL2 dev libraries and Python dev headers to build pygame:
-
-```bash
-sudo dnf install SDL2-devel SDL2_mixer-devel SDL2_image-devel SDL2_ttf-devel python3-devel
-```
-
-Create a virtual environment and install dependencies:
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-```
+Uses the `homedisplay` Miniconda environment (`~/miniconda3/envs/homedisplay`).
 
 Run:
 
 ```bash
-.venv/bin/python homedisplay.py
+~/miniconda3/envs/homedisplay/bin/python homedisplay.py
 ```
 
 This opens an 800×480 window. Weather data is fetched from Open-Meteo (no API key needed).
