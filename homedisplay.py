@@ -1,9 +1,7 @@
 import os
 import pygame
-import time
-import random
 import pytz
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from dateutil.tz import gettz
 import requests
 import urllib.request
@@ -13,9 +11,8 @@ import traceback
 import platform
 import logging
 import math
-from influxdb import InfluxDBClient
-import dateutil
 import getpass
+from typing import Any
 
 def is_windows():
     return platform.system() == "Windows"
@@ -34,7 +31,7 @@ else:
     logfile = "/tmp/homedisplay.log"
 logging.basicConfig(filename=logfile, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 
-def handler(signum, frame):
+def handler(signum: int, frame: Any) -> None:
     """Why is systemd sending sighups/SIGCONT? I DON'T KNOW."""
     logging.warning("Got a {} signal. Doing nothing".format(signum))
     # Note that this messes up the correct handling of 'service homedisplay stop' and restart. This means that the Pi
@@ -46,7 +43,7 @@ if not is_windows():
 
 bft_threshold = (0.3, 1.5, 3.4, 5.4, 7.9, 10.7, 13.8, 17.1, 20.7, 24.4, 28.4, 32.6)
 
-def wind_bft(ms):
+def wind_bft(ms: float | None) -> int | None:
     "Convert wind from metres per second to Beaufort scale"
     if ms is None:
         return None
@@ -55,26 +52,26 @@ def wind_bft(ms):
             return bft
     return len(bft_threshold)
 
-def get_secret(key):
+def get_secret(key: str) -> str | None:
     if is_windows():
         with open(f"d:\\Dropbox\\secrets\\{key}", "r") as f:
             return f.readline()
     else:
         return os.getenv(key)
 
-class HomeDisplay :
-    screen = None
+class HomeDisplay:
+    screen: pygame.Surface
     tz = pytz.timezone('Europe/Amsterdam')
-    font_time = None
-    font_usage = None
-    font_temp = None
-    width = 0
-    height = 0
-    last_tomorrow_call = None
-    temperature = '?'
-    wind_speed = '?'
-    wind_dir_name = '?'
-    precipitations = []
+    font_time: pygame.font.Font
+    font_usage: pygame.font.Font
+    font_temp: pygame.font.Font
+    width: int = 0
+    height: int = 0
+    last_tomorrow_call: datetime | None = None
+    temperature: int | str = '?'
+    wind_speed: int | str = '?'
+    wind_dir_name: str = '?'
+    precipitations: list[int] = []
     
     def init_non_pi(self):
         pygame.init()
@@ -133,7 +130,6 @@ class HomeDisplay :
         # Render the screen
         pygame.display.update()
 
-        self.influxdb_client = InfluxDBClient('fitlet', 8086, 'admin', 'admin', 'hc2_log')
 
     def __del__(self):
         "Destructor to make sure pygame shuts down, etc."
@@ -159,71 +155,49 @@ class HomeDisplay :
             logging.warning(str(e))
             logging.warning(traceback.format_exc())
 
-    def retrieve_indoor_temp_and_hum(self):
-        records = self.influxdb_client.query("select * from \"hc2\" where \"room\"='Woonkamer' order by time desc limit 1;")
-        for measurement in records.get_points():
-            time = measurement["time"]
-            time = dateutil.parser.isoparse(time)
-            if (datetime.now(timezone.utc) - time).total_seconds() < 60 * 60:
-                humidity = measurement["humidity"]
-                temperature = measurement["temperature"]
-                return (temperature, humidity)
-
-        return None
-
-    def show_indoor_temp_and_hum(self):
-        result = self.retrieve_indoor_temp_and_hum()
-        if result is None:
-            return
-
-        (temperature, humidity) = result
-        text = f"{temperature}° {humidity:.0f}%"
-        img = self.font_temp.render(text, True, (255, 255, 255))
-        text_height = img.get_rect().h
-        self.screen.blit(img, (0, text_height))
 
     def retrieve_weather_info(self):
         if self.last_tomorrow_call is None or datetime.now() >= self.last_tomorrow_call + timedelta(minutes=10):
             try:
                 is_data_suspect = False
                 try:
-                    url = "https://api.tomorrow.io/v4/timelines"
-                    querystring = {
-                        "location": "6138471889c05400076aafc4", # Purmerend
-                        "fields": ["temperature", "precipitationIntensity", "windSpeed", "windDirection"],
-                        "units": "metric",
-                        "timesteps": ["1h"],
-                        "startTime": datetime.now(gettz("Europe/Amsterdam")).isoformat(),
-                        "endTime": (datetime.now(gettz("Europe/Amsterdam")) + timedelta(hours = 6)).isoformat(),
-                        "apikey": get_secret("TOMORROW_API_KEY")
+                    url = "https://api.open-meteo.com/v1/forecast"
+                    querystring: dict[str, Any] = {
+                        "latitude": 52.5028,   # Purmerend
+                        "longitude": 4.9597,
+                        "current": "temperature_2m,wind_speed_10m,wind_direction_10m",
+                        "hourly": "precipitation",
+                        "wind_speed_unit": "ms",
+                        "forecast_hours": 12,
+                        "timezone": "Europe/Amsterdam",
                     }
 
                     self.last_tomorrow_call = datetime.now()
-                    r = requests.request("GET", url, params=querystring)
+                    r = requests.get(url, params=querystring)
 
                 except requests.exceptions.ConnectionError:
-                    logging.exception("Unable to connect to Tomorrow API")
-                    # This call was not registered, so try again in the next update.
+                    logging.exception("Unable to connect to Open-Meteo API")
                     return
 
                 if r.status_code != 200:
-                    logging.warning(f"Tomorrow API returned {r.status_code}")
-                    return;
+                    logging.warning(f"Open-Meteo API returned {r.status_code}")
+                    return
 
-                data = json.loads(r.text)
+                data = r.json()
 
                 try:
-                    self.temperature = int(data["data"]["timelines"][0]["intervals"][0]["values"]["temperature"] + 0.5)
+                    self.temperature = round(data["current"]["temperature_2m"])
                 except:
                     is_data_suspect = True
 
                 try:
-                    self.wind_speed = wind_bft(int(data["data"]["timelines"][0]["intervals"][0]["values"]["windSpeed"] + 0.5))
+                    bft = wind_bft(data["current"]["wind_speed_10m"])
+                    self.wind_speed = bft if bft is not None else '?'
                 except:
                     is_data_suspect = True
 
                 try:
-                    wind_dir = int(data["data"]["timelines"][0]["intervals"][0]["values"]["windDirection"] + 0.5)
+                    wind_dir = data["current"]["wind_direction_10m"]
                     wind_index = int(((wind_dir + 360 / 16) % 360) / (360 / 16))
                     wind_dir_names = ["N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO", "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NWN"]
                     self.wind_dir_name = wind_dir_names[wind_index]
@@ -231,24 +205,24 @@ class HomeDisplay :
                     is_data_suspect = True
 
                 if is_data_suspect:
-                    logging.warning(f"Tomorrow current data is suspect: {r.text}")
+                    logging.warning(f"Open-Meteo current data is suspect: {r.text}")
 
-                logging.info(f"Measurements from Tomorrow: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
+                logging.info(f"Measurements from Open-Meteo: {self.temperature}° {self.wind_speed} Bft {self.wind_dir_name}")
 
                 try:
-                    self.precipitations = [int(d["values"]["precipitationIntensity"] + 0.5) for d in data["data"]["timelines"][0]["intervals"]]
-                    is_data_suspect = False
-                    if None in self.precipitations:
-                        is_data_suspect = True
-
+                    now = datetime.now(gettz("Europe/Amsterdam"))
+                    current_hour_str = now.strftime("%Y-%m-%dT%H:00")
+                    times = data["hourly"]["time"]
+                    idx = times.index(current_hour_str) if current_hour_str in times else 0
+                    self.precipitations = [round(p) for p in data["hourly"]["precipitation"][idx:idx + 6]]
                 except:
                     is_data_suspect = True
 
                 if is_data_suspect:
-                    logging.warning(f"Tomorrow 1h data is suspect: {r.text}")
+                    logging.warning(f"Open-Meteo hourly data is suspect: {r.text}")
 
             except:
-                logging.exception("Unable to retrieve weather info from Tomorrow")
+                logging.exception("Unable to retrieve weather info from Open-Meteo")
                 self.temperature = "?"
                 self.wind_speed = "?"
                 self.wind_dir_name = "?"
@@ -269,8 +243,6 @@ class HomeDisplay :
         color = (51, 204, 255)
         max_mm_hr = 5
         for precipitation in self.precipitations:
-            if precipitation is None:
-                precipitation = 0
             precipitation = min(precipitation, max_mm_hr)
             precipitation_bar_height = max(1, precipitation_max_height / max_mm_hr * math.ceil(precipitation))
             rect = (x_offset, y_offset + precipitation_max_height - precipitation_bar_height), (precipitation_bar_width, precipitation_bar_height)
@@ -292,13 +264,6 @@ class HomeDisplay :
         date_text = datetime.now(self.tz).strftime("%d-%m")
         img = self.font_time.render(date_text, True, pygame.Color("white"))
         self.screen.blit(img, (self.width - img.get_rect().w, text_height))
-
-        try:
-            self.show_indoor_temp_and_hum()
-        except Exception as e:
-            # Do not let a failed call crash the display, but show the error.
-            logging.warning(str(e))
-            logging.warning(traceback.format_exc())
 
         # Show net usage in the middle.
         live = self.get_live_usage()
@@ -326,7 +291,7 @@ home_display = HomeDisplay()
 while (True):
     pygame.event.get()
     home_display.update()
-    # Update every 10 seconds because that's the interval that the smart meter updates.
-    for i in range(100):
+    # Update every second because that's the interval that the smart meter updates.
+    for i in range(10):
         pygame.event.get()
         pygame.time.wait(100)
