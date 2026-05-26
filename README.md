@@ -20,11 +20,13 @@ Logs are written to `/tmp/homedisplay.log`.
 
 ## How to deploy
 
-The repo should be next to the HomeServerConfig repo.
+The repo should be next to the homeserverconfig repo.
 
-1. In this repo, run publish.sh.
-2. Go to the HomeServicerConfig repo.
-3. Run ./deploy-homedisplay.sh
+Within the homedisplay repo:
+
+```bash
+./publish.sh.
+```
 
 ## Depends on
 
@@ -32,6 +34,7 @@ The repo should be next to the HomeServerConfig repo.
 
 Plans
 
+- figure out why the text on Linux desktop does not display the same as on the Pi touchscreen
 - retrieve current solar generation and show both live generation and live actual usage
 - show inside and outside temperature
 - show feather forecast
